@@ -111,10 +111,10 @@ interval:
 
 # Fonts for the oled (copy included file in your font folder)
 font:
-  - file: "include/fonts/smallpixe_5×5.ttf"
+  - file: "fonts/smallpixe_5×5.ttf"
     id: smallfont # for the text
     size: 10
-  - file: "include/fonts/Baloo2-Regular.ttf"
+  - file: "fonts/Baloo2-Regular.ttf"
     id: font2
     size: 12
 
