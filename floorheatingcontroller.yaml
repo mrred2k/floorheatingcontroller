@@ -1,0 +1,418 @@
+# These substitutions allow the end user to override certain values
+substitutions:
+  devicename: fhc
+  upper_devicename: fhc
+
+esphome:
+  name: "${devicename}"
+  comment: "fbh Controller rev 1 Testboard"
+  # Automatically add the mac address to the name
+  # so you can use a single firmware for all devices
+  name_add_mac_suffix: true
+
+  # This will allow for (future) project identification,
+  # configuration and updates.
+  project:
+    name: intail.floor-heating-controller
+    version: "1.0"
+
+esp8266:
+  board: esp12e
+
+# To be able to get logs from the device via serial and api.
+logger:
+
+# API is a requirement of the dashboard import.
+api:
+
+# OTA is required for Over-the-Air updating
+ota:
+
+# Activate the web server # version: 1 or 2
+web_server:
+  port: 80
+#  version: 1 # or 2
+
+# This should point to the public location of this yaml file.
+dashboard_import:
+  package_import_url: github://mrred2k/floorheatingcontroller/floorheatingcontroller.yaml@main
+
+wifi:
+  # Set up a wifi access point using the device name above
+  ap:
+    password: "12345678"
+
+# In combination with the `ap` this allows the user
+# to provision wifi credentials to the device.
+captive_portal:
+
+
+##########################################################
+# Most projects should not remove anything from above here
+# and should just modify the name, project name/version 
+# and git url for the dashboard_import
+##########################################################
+
+
+# Sets up the improv via serial client for Wi-Fi provisioning.
+# Handy if your device has a usb port for the user to add credentials when they first get it.
+improv_serial:
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time   
+
+####_____________________Hardware_____________________________________________####
+
+## GPIO and Conncetions
+
+#  0 = 
+#  2 = Onboard LED
+#  4 = sda
+#  5 = scl
+# 12 = Dallas Sensor
+# 13 = Simple Button
+# 14 = 
+# 15 = 
+# 17 = ADC
+# 25 =
+# 26 =
+# RX = 
+# TX = 
+
+# I2C Setuo for the I/O-Expander
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  #scan: true
+  frequency: 800kHz
+
+#Text Sensor for Human readable Uptime and Connectivity Sensor Template 
+text_sensor: 
+  - platform: template
+    name: ${devicename} Uptime
+    id: ${devicename}_uptime_human
+    icon: mdi:clock-start
+  - platform: wifi_info
+    ip_address:
+      name: ESP IP Address
+      id: ${devicename}_ip
+      internal: false
+    ssid:
+      name: ESP Connected SSID
+      id: ${devicename}_my_SSID
+      internal: false
+
+interval:
+  - interval: 2s # For example cycle through pages on a timer on the oled
+    then:
+      - display.page.show_next: screen
+      - component.update: screen
+
+# Fonts for the oled (copy included file in your font folder)
+font:
+  - file: "include/fonts/smallpixe_5×5.ttf"
+    id: smallfont # for the text
+    size: 10
+  - file: "include/fonts/Baloo2-Regular.ttf"
+    id: font2
+    size: 12
+
+# Display
+display:
+  - platform: ssd1306_i2c
+    id: screen
+    model: "SSD1306 128x64"
+    address: 0x3C
+    update_interval: 20s
+    on_page_change:
+      - from: page1
+        to: page2
+        then:
+          lambda: |-
+            ESP_LOGD("display", "Page changed from 1 to 2");
+    pages:
+     - id: page1
+       lambda: |-     
+        it.printf(0, -4 ,id(smallfont) ,"Uptime: %s",id(${devicename}_uptime_human).state.c_str());
+        it.printf(0, 4 ,id(smallfont) ,"Connection:");
+        it.printf(0, 12, id(smallfont), "%s", id(${devicename}_ip).state.c_str()); 
+        it.printf(0, 20, id(smallfont), "WLAN: %.0f dBm", id(${devicename}_wlan_signal).state);
+        it.printf(0, 28 ,id(smallfont) ,"Current time:");
+        it.strftime(0, 36, id(smallfont), "%H:%M-%d.%m.%y", id(homeassistant_time).now());
+        
+
+     - id: page2
+       lambda: |-
+        it.line(45, 0, 45 , 64); // Draw a line         
+        it.printf(5, 0, id(smallfont), "01 - %i", id(${devicename}_output_01).state);
+        it.printf(5, 10, id(smallfont), "02 - %i", id(${devicename}_output_02).state);
+        it.printf(5, 20, id(smallfont), "03 - %i", id(${devicename}_output_03).state);
+        it.printf(5, 30, id(smallfont), "04 - %i", id(${devicename}_output_04).state);
+        it.printf(5, 40, id(smallfont), "05 - %i", id(${devicename}_output_05).state);
+        it.printf(5, 50, id(smallfont), "06 - %i", id(${devicename}_output_06).state);
+        it.printf(50, 0, id(smallfont), "07 - %i", id(${devicename}_output_07).state);
+        it.printf(50, 10, id(smallfont), "08 - %i", id(${devicename}_output_08).state);
+        it.printf(50, 20, id(smallfont), "09 - %i", id(${devicename}_output_09).state);
+        it.printf(50, 30, id(smallfont), "10 - %i", id(${devicename}_output_10).state);
+        it.printf(50, 40, id(smallfont), "11 - %i", id(${devicename}_output_11).state);
+        it.printf(50, 50, id(smallfont), "12 - %i", id(${devicename}_output_12).state);
+
+#Setup for the DS18b12 Probes
+dallas:
+  pin: GPIO12 #D6
+  update_interval: 10s
+
+# Setup for IO Expander
+mcp23017:
+  - id: 'mcp23017_hub'
+    address: 0x20
+
+#Setup for using the Status led as a signal led
+light:
+  - platform: status_led
+    name: ${devicename}_onboard_LED
+    pin: GPIO2
+
+# Buttons only acessable in HomeAssistant 
+button:
+  - platform: restart
+    name: ${devicename}_restart
+  - platform: factory_reset
+    name: ${devicename} Reset to Factory
+
+#Attached Sensors
+    ## Add you ds18b12 codes here and add a new sensor for each connected probe
+sensor:
+  - platform: dallas
+    address: 0xa40000090251a128 #must be change to your specific adress, startup scan should provide
+    name: "fbh1 Port01"
+    id: port_01
+    #internal: true
+  
+  - platform: dallas
+    address: 0xd63cfd0457097228 #must be change to your specific adress, startup scan should provide
+    name: "fbh1 Port02"
+    id: port_02
+    #internal: true
+  - platform: dallas
+    address: 0x3a3c1f0457449d28 #must be change to your specific adress, startup scan should provide
+    name: "fbh1 Port03"
+    id: port_03
+    #internal: true
+
+  ## ADC for fun (not used atm)
+  - platform: adc
+    pin: GPIO17
+    #attenuation: auto # can be 0db, 2.5db, 6db, 11db # only supported with esp32
+    name: "${devicename} ADC Voltage"
+    #filters:
+    #  - multiply: 3.3
+
+  - platform: wifi_signal
+    name: "${devicename} Wifi Signal"
+    update_interval: 30s
+    id: ${devicename}_wlan_signal
+    internal: false
+
+  ##Raw uptime sensor (is converted to human readable with template)
+  - platform: uptime
+    name: ${devicename} Uptime Sensor
+    id: ${devicename}_uptime_sensor
+    update_interval: 10s
+    internal: true #not necessary as converted to human readble
+
+    on_raw_value:
+      then:
+        - if:
+            condition:
+              api.connected:
+            then:
+              #- logger.log: API is connected!
+            else:
+              #- logger.log: No API Connection.
+        - text_sensor.template.publish:
+            id: ${devicename}_uptime_human
+            state: !lambda |-
+              int seconds = round(id(${devicename}_uptime_sensor).raw_state);
+              int days = seconds / (24 * 3600);
+              seconds = seconds % (24 * 3600);
+              int hours = seconds / 3600;
+              seconds = seconds % 3600;
+              int minutes = seconds /  60;
+              seconds = seconds % 60;
+              return (
+                (days ? to_string(days) + "d " : "") +
+                (hours ? to_string(hours) + "h " : "") +
+                (minutes ? to_string(minutes) + "m " : "") +
+                (to_string(seconds) + "s")
+              ).c_str();
+
+
+####MCP IO Expander Pins ####
+
+# GPIO pins in the datasheet are labelled A0 to A7 and B0 to B7,
+# these are mapped consecutively in this component to numbers from 0 to 15.
+
+# Individual outputs
+switch:
+  - platform: gpio
+    name: "${devicename} Channel_01"
+    id: ${devicename}_output_01
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin B0
+      number: 8
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_02"
+    id: ${devicename}_output_02
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin B1
+      number: 9
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_03"
+    id: ${devicename}_output_03
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin B2
+      number: 10
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF     
+  - platform: gpio
+    name: "${devicename} Channel_04"
+    id: ${devicename}_output_04
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin B3
+      number: 11
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_05"
+    id: ${devicename}_output_05
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin B4
+      number: 12
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_06"
+    id: ${devicename}_output_06
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin B5
+      number: 13
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_07"
+    id: ${devicename}_output_07
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin B6
+      number: 14
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_08"
+    id: ${devicename}_output_08
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin B7
+      number: 15
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_09"
+    id: ${devicename}_output_09
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin A0
+      number: 0
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF     
+  - platform: gpio
+    name: "${devicename} Channel_10"
+    id: ${devicename}_output_10
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin A1
+      number: 1
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_11"
+    id: ${devicename}_output_11
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin A2
+      number: 2
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "${devicename} Channel_12"
+    id: ${devicename}_output_12
+    pin:
+      mcp23xxx: mcp23017_hub
+      # Use pin A3
+      number: 3
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+
+ # Example for the unused pins as INPUTs (broken out on pcb)
+#binary_sensor:
+#  - platform: gpio
+#    name: "MCP23017 Pin B7"
+#    pin:
+#      mcp23xxx: mcp23017_hub
+#      # Use pin xx #change as you need
+#      number: xx #change as you need
+#      # One of INPUT or INPUT_PULLUP
+#      mode:
+#        input: true
+#        pullup: true
+#      inverted: false     
+
+##simple button directly connected on pcb. Use as you think: testmode maybe? all on ?
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO13
+      mode: INPUT_PULLUP
+      inverted: True
+    id: gp_button
+    name: Button
+    on_press:
+      then:
+        - logger.log: "Button!"
+      
