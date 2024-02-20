@@ -1,10 +1,10 @@
 # About
 
-Floor heating controller with 12 channels and connections for Dallas temperature sensors
+Floor heating controller with up to 12 channels and connections for Dallas temperature sensors
 All unused pins are broken out so you can hack some more.
 
 Check the Github yaml for inspiration and if this webtools dont work for you:
-[website](https://mrred2k.github.io/floorheatingcontroller/)
+[website](https://github.com/mrred2k/floorheatingcontroller)
 
 # Installation
 
